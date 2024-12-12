@@ -46,6 +46,13 @@ public class HotelService {
         hotelRepository.save(h);
     }
 
+    public void deleteHotel(int id){
+        if (!hotelRepository.existsById(id)){
+            throw new EntityNotFoundException("Hotel not found with this id"+id);
+        }
+        hotelRepository.deleteById(id);
+    }
+
     public Hotel findHotelByid(int id){
         return hotelRepository.findById(id)
                 .orElseThrow(()-> new EntityNotFoundException("Hotel not found with this id: "+ id));
@@ -56,7 +63,7 @@ public class HotelService {
                 .orElseThrow(()-> new EntityNotFoundException("Hotel not found with this Name: "+ name));
     }
 
-    public void updateHotel(int id, Hotel updateHotel, MultipartFile image) throws IOException {
+    public Hotel updateHotel(int id, Hotel updateHotel, MultipartFile image) throws IOException {
         Hotel existingHotel = hotelRepository.findById(id)
                 .orElseThrow(()-> new EntityNotFoundException("Hotel not found with this id: "+id));
 
@@ -79,6 +86,7 @@ public class HotelService {
         }
 
 
+        return hotelRepository.save(existingHotel);
     }
 
     public List<Hotel> findHotelByLocationName(String locationName){
