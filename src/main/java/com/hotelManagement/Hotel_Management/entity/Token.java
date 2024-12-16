@@ -2,6 +2,7 @@ package com.hotelManagement.Hotel_Management.entity;
 
 import jakarta.persistence.*;
 
+@Entity
 public class Token {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
