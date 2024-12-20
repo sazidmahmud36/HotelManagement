@@ -1,12 +1,15 @@
 package com.hotelManagement.Hotel_Management.service;
 
 import com.hotelManagement.Hotel_Management.entity.AuthenticationResponse;
+import com.hotelManagement.Hotel_Management.entity.Role;
 import com.hotelManagement.Hotel_Management.entity.Token;
 import com.hotelManagement.Hotel_Management.entity.User;
 import com.hotelManagement.Hotel_Management.jwt.JwtService;
 import com.hotelManagement.Hotel_Management.repository.TokenRepository;
 import com.hotelManagement.Hotel_Management.repository.UserRepository;
+import jakarta.mail.MessagingException;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -54,9 +57,74 @@ public class AuthService {
     }
 
     public AuthenticationResponse resgister(User user){
-        return null;
+        //we check that already any user exists with this email id
+        if (userRepository.findByEmail(user.getEmail()).isPresent()){
+            return new AuthenticationResponse(null, "User Already Exists");
+        }
+
+        //Encode user password to DB
+        user.setPassword(passwordEncoder.encode(user.getPassword()));
+        user.setRole(Role.valueOf("USER"));
+        user.setLock(true);
+        user.setActive(false);
+
+        userRepository.save(user);
+
+        String jwt = jwtService.generateToken(user);
+
+        saveUserToken(jwt,user);
+
+        sendActivationEmail(user);
+        return new AuthenticationResponse(jwt, "User Registration was successful");
     }
 
+    private void sendActivationEmail(User user) {
+        String activationLink="http://localhost:8080/active/" + user.getId();
+        String mailText = "<h2>Dear</h2>" + user.getName()+", "
+                +"<p>Please Click on the following link to confirm your registration</p>"
+                +"<a href=\""+activationLink+"\">Active Account</a>";
+        String subject="Confirm Registration";
+
+        try {
+            emailService.sendSimpleEmail(user.getEmail(), subject, mailText);
+        }catch (MessagingException e){
+            throw new RuntimeException();
+        }
+    }
+
+    public AuthenticationResponse authenticate(User request){
+        authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(
+                        request.getUsername(),
+                        request.getPassword()
+                )
+        );
+
+        User user = userRepository.findByEmail(request.getEmail()).orElseThrow();
+        // Generate token for  current user
+        String jwt = jwtService.generateToken(user);
+        //Remove all existing token for this user
+        removeAllTokenByUser(user);
+
+        saveUserToken(jwt, user);
+        return new AuthenticationResponse(jwt, "User Login successful");
+    }
+
+
+    public String activeUser(long id){
+
+        User user = userRepository.findById(id)
+                .orElseThrow(()-> new RuntimeException("User not found with this id:" + id));
+
+        if (user != null){
+            user.setActive(true);
+            userRepository.save(user);
+            return "User added successfully!";
+        }else {
+            return "Invalid Activation token!";
+        }
+
+    }
 
 
 }
